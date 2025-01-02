@@ -70,9 +70,15 @@ build-remove:
 	rm -rf build/
 
 .PHONY: clean-all
-clean-all: pycache-remove build-remove 
+clean-all: pycache-remove build-remove
 
 #* Service targets
 .PHONY: grep-todos
 grep-todos:
 	git grep -EIn "TODO|FIXME|XXX"
+
+#* Airflow
+.PHONY: airflow-standalone-run
+airflow-standalone-run:
+	set -a; source ./.env.airflow.standalone; source ./.env; set +a; \
+	poetry run airflow standalone

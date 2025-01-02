@@ -11,6 +11,7 @@ Awesome `python-ml-project-airflow` project!
 
 - [Repository contents](#repository-contents)
 - [System requirements](#system-requirements)
+- [How to run/debug code](#how-to-rundebug-code)
 - [Other interesting info](#other-interesting-info)
 
 ## Repository contents
@@ -41,9 +42,13 @@ Awesome `python-ml-project-airflow` project!
 
 - Python version: 3.9
 - Operating system: Ubuntu or WSL
-- Poetry version >= 1.3.0
+- Poetry version >= 1.8.0
 
 > We tested on this setup - you can try other versions or operation systems by yourself!
+
+## How to run/debug code
+
+You can run code using instructions from [docs/Dev-Debug.md](docs/Dev-Debug.md).
 
 ## Other interesting info
 

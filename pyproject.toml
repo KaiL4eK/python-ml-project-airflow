@@ -24,20 +24,13 @@ classifiers = [  #! Update me
   "Programming Language :: Python :: 3",
 ]
 
-
-
-
-
 [tool.poetry.dependencies]
 python = "~3.9.0"
 python-dotenv = "^1.0.1"
-
+apache-airflow = "^2.10.4"
 
 [tool.poetry.group.dev.dependencies]
 # In case of packages without patch part we just want to update them through minor versions
-
-
-
 
 ruff = "^0.8"
 mypy = "^1.8"
@@ -117,8 +110,10 @@ convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S", "D", "INP001"]
-"python_ml_project_airflow/__init__.py" = ["D400", "D103"]
+"python_ml_project_airflow/*/__init__.py" = ["D400", "D1"]
 "scripts/*" = ["BLE001", "D", "INP001"]
+"dags/*" = ["INP001"]
+"notebooks/*" = ["T203", "ERA001"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
