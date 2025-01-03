@@ -2,8 +2,6 @@
 SHELL := /usr/bin/env bash
 PYTHON ?= python3
 
-
-
 #* Initialization
 .PHONY: project-init
 project-init: poetry-install tools-install mypy-install
@@ -82,3 +80,15 @@ grep-todos:
 airflow-standalone-run:
 	set -a; source ./.env.airflow.standalone; source ./.env; set +a; \
 	poetry run airflow standalone
+
+DOCKER_COMPOSE_BASE_CMD := docker compose \
+	-f docker-compose.yaml \
+	--env-file .env
+
+.PHONY: airflow-docker-build
+airflow-docker-build:
+	${DOCKER_COMPOSE_BASE_CMD} build
+
+.PHONY: airflow-docker-run
+airflow-docker-run: airflow-docker-build
+	${DOCKER_COMPOSE_BASE_CMD} up

@@ -624,3 +624,6 @@ MigrationBackup/
 
 # Ignore Airflow home directory
 airflow-home
+
+# Ruff cache
+.ruff_cache

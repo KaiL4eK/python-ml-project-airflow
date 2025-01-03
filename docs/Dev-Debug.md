@@ -12,7 +12,7 @@
 
 ### Run standalone session
 
-Just call next comman and it will run standalone local Airflow.
+Just call next command and it will run standalone local Airflow.
 
 ```bash
 make airflow-standalone-run
@@ -26,7 +26,17 @@ You can find Airflow on `http://localhost:8080/`.
 
 ## Local Airflow run using Docker
 
-TODO =)
+Just call next command and it will run docker local Airflow.
+
+```bash
+make airflow-docker-run
+```
+
+You can find Airflow on `http://localhost:8080/`.
+
+> Airflow configuration is done using ENV in [docker-compose.yaml](../docker-compose.yaml).
+
+> Initialization logic is defined in [docker/scripts/airflow_docker_init.sh](../docker/scripts/airflow_docker_init.sh).
 
 ## Specific functions run locally
 

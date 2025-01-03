@@ -6,6 +6,7 @@ from airflow.decorators import dag
 
 from python_ml_project_airflow.airflow.tasks import (
     show_logic_time_task,
+    show_sample_variable,
     simple_task_operator,
     simple_task_taskflow,
 )
@@ -19,7 +20,12 @@ from python_ml_project_airflow.airflow.tasks import (
 )
 def simple_dag() -> None:
     """Sample DAG."""
-    simple_task_taskflow() >> simple_task_operator >> show_logic_time_task()
+    (
+        simple_task_taskflow()
+        >> simple_task_operator
+        >> show_logic_time_task()
+        >> show_sample_variable()
+    )
 
 
 simple_dag()

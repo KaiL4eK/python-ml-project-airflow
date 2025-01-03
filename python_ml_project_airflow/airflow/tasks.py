@@ -14,6 +14,7 @@ import logging
 from datetime import datetime, timezone
 
 from airflow.decorators import task
+from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
 from pendulum import DateTime  # noqa: TC002
 
@@ -40,3 +41,10 @@ def show_logic_time_task(logical_date: DateTime) -> None:
     """Task to debug logical time."""
     logical_ts = datetime.fromtimestamp(logical_date.timestamp(), tz=timezone.utc)
     return show_logic_time(logical_ts=logical_ts)
+
+
+@task
+def show_sample_variable() -> None:
+    """Sample task to access Variables."""
+    sample_variable = Variable.get("SAMPLE_VARIABLE")
+    logger.info(f"SAMPLE_VARIABLE={sample_variable}")
