@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from time import sleep
 
 from airflow.decorators import task
 from airflow.models import Variable
@@ -41,6 +42,12 @@ def show_logic_time_task(logical_date: DateTime) -> None:
     """Task to debug logical time."""
     logical_ts = datetime.fromtimestamp(logical_date.timestamp(), tz=timezone.utc)
     return show_logic_time(logical_ts=logical_ts)
+
+
+@task
+def sample_sleep_task(sleep_time: int) -> None:
+    """Task just to capture worker."""
+    sleep(sleep_time)
 
 
 @task

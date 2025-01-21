@@ -115,6 +115,7 @@ convention = "numpy"
 "scripts/*" = ["BLE001", "D", "INP001"]
 "dags/*" = ["INP001"]
 "notebooks/*" = ["T203", "ERA001"]
+"notebooks/test_multiple_times_run.ipynb" = ["T201", "S113"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

@@ -92,3 +92,7 @@ airflow-docker-build:
 .PHONY: airflow-docker-run
 airflow-docker-run: airflow-docker-build
 	${DOCKER_COMPOSE_BASE_CMD} up
+
+.PHONY: airflow-docker-run-prod
+airflow-docker-run-prod: airflow-docker-build
+	${DOCKER_COMPOSE_BASE_CMD} -f docker-compose.prod.yaml up

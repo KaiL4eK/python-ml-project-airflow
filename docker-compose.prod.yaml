@@ -3,6 +3,13 @@
 volumes:
   postgres-db-volume:
 
+x-logs-common:
+  &logs-common
+  logging:
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 x-airflow-common:
   &airflow-common
   # Build custom image with deps from poetry
@@ -16,8 +23,12 @@ x-airflow-common:
     &airflow-common-env
     # General way to config Airflow, see .env.airflow.standalone
     # AIRFLOW__<SECTION>__<KEY>
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: '50'
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: amqp://airflow:airflow@rabbitmq:5672/airflow
     AIRFLOW_UID: ${AIRFLOW_UID:-50000}
     # Our connections/variables
     AIRFLOW_CONN_SAMPLE_CONNECTION: ${AIRFLOW_CONN_SAMPLE_CONNECTION}
@@ -25,7 +36,8 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKEND: airflow.api.auth.backend.basic_auth
   volumes:
     # Mount sources to update without restart
-    - ./python_ml_project_airflow:/opt/airflow/python_ml_project_airflow
+    # TODO: somewhy with Celery it works only when we mount into dags directory
+    - ./python_ml_project_airflow:/opt/airflow/dags/python_ml_project_airflow
     # Mount DAGs to update without restart
     - ./dags:/opt/airflow/dags
     # Other stuff
@@ -36,10 +48,14 @@ x-airflow-common:
     &airflow-common-depends-on
     postgres:
       condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
 
 services:
   airflow-check-resources:
-    <<: *airflow-common
+    <<:
+      - *airflow-common
+      - *logs-common
     entrypoint: /bin/bash
     command:
       - ./scripts/check_resources.sh
@@ -48,7 +64,9 @@ services:
     user: "0:0"
 
   airflow-init:
-    <<: *airflow-common
+    <<:
+      - *airflow-common
+      - *logs-common
     entrypoint: /bin/bash
     command:
       - ./scripts/airflow_docker_init.sh
@@ -65,6 +83,7 @@ services:
         condition: service_completed_successfully
 
   postgres:
+    <<: *logs-common
     image: postgres:13
     environment:
       POSTGRES_USER: airflow
@@ -79,8 +98,52 @@ services:
       start_period: 5s
     restart: always
 
+  rabbitmq:
+    <<: *logs-common
+    image: rabbitmq:4.0.5-management-alpine
+    restart: always
+    ports:
+        - "15672:15672"
+        - "5672:5672"
+    healthcheck:
+      test: rabbitmq-diagnostics check_port_connectivity
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    environment:
+        - RABBITMQ_DEFAULT_USER=airflow
+        - RABBITMQ_DEFAULT_PASS=airflow
+        - RABBITMQ_DEFAULT_VHOST=airflow
+
+  airflow-worker:
+    <<:
+      - *airflow-common
+      - *logs-common
+    command: celery worker
+    deploy:
+      replicas: 2
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    environment:
+      <<: *airflow-common-env
+      # Required to handle warm shutdown of the celery workers properly
+      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
   airflow-webserver:
-    <<: *airflow-common
+    <<:
+      - *airflow-common
+      - *logs-common
     command: webserver
     ports:
       - "8080:8080"
@@ -97,7 +160,9 @@ services:
         condition: service_completed_successfully
 
   airflow-scheduler:
-    <<: *airflow-common
+    <<:
+      - *airflow-common
+      - *logs-common
     command: scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
@@ -112,7 +177,9 @@ services:
         condition: service_completed_successfully
 
   airflow-triggerer:
-    <<: *airflow-common
+    <<:
+      - *airflow-common
+      - *logs-common
     command: triggerer
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
