@@ -29,11 +29,12 @@ x-airflow-common:
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: amqp://airflow:airflow@rabbitmq:5672/airflow
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "10"
     AIRFLOW_UID: ${AIRFLOW_UID:-50000}
     # Our connections/variables
     AIRFLOW_CONN_SAMPLE_CONNECTION: ${AIRFLOW_CONN_SAMPLE_CONNECTION}
     AIRFLOW_VAR_SAMPLE_VARIABLE: ${AIRFLOW_VAR_SAMPLE_VARIABLE}
-    AIRFLOW__API__AUTH_BACKEND: airflow.api.auth.backend.basic_auth
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
   volumes:
     # Mount sources to update without restart
     # TODO: somewhy with Celery it works only when we mount into dags directory

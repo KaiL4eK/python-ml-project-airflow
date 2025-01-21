@@ -22,7 +22,7 @@ x-airflow-common:
     # Our connections/variables
     AIRFLOW_CONN_SAMPLE_CONNECTION: ${AIRFLOW_CONN_SAMPLE_CONNECTION}
     AIRFLOW_VAR_SAMPLE_VARIABLE: ${AIRFLOW_VAR_SAMPLE_VARIABLE}
-    AIRFLOW__API__AUTH_BACKEND: airflow.api.auth.backend.basic_auth
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
   volumes:
     # Mount sources to update without restart
     - ./python_ml_project_airflow:/opt/airflow/python_ml_project_airflow
