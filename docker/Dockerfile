@@ -3,6 +3,7 @@ ARG AIRFLOW_IMAGE_NAME=apache/airflow:2.10.4
 FROM ${AIRFLOW_IMAGE_NAME}
 
 # `root` user to install everything
+# vim - just as an example, remove if apt not required
 USER root
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
