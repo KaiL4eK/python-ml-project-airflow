@@ -19,6 +19,6 @@ COPY requirements.project.txt pyproject.toml poetry.lock README.md ./
 RUN pip install --upgrade pip \
   && pip install -r requirements.project.txt \
   && poetry export --only main --format=requirements.txt > requirements.txt \
-  && pip install -r requirements.project.txt
+  && pip install -r requirements.txt
 
 COPY docker/scripts/ ./scripts/
