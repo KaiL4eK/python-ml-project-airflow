@@ -28,6 +28,7 @@ classifiers = [  #! Update me
 python = "~3.9.0"
 python-dotenv = "^1.0.1"
 apache-airflow = "^2.10.4"
+asyncpg = "^0.30.0"
 
 [tool.poetry.group.dev.dependencies]
 # In case of packages without patch part we just want to update them through minor versions

@@ -17,7 +17,7 @@ from time import sleep
 from airflow.decorators import task
 from airflow.models import Variable
 from airflow.operators.python_operator import PythonOperator
-from pendulum import DateTime  # noqa: TC002
+from pendulum import DateTime
 
 from python_ml_project_airflow.services import show_logic_time, simple_logic
 

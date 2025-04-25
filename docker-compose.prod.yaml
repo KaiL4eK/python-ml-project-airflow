@@ -25,16 +25,22 @@ x-airflow-common:
     # AIRFLOW__<SECTION>__<KEY>
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: '50'
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: '900'
+    # AIRFLOW__CORE__PARALLELISM: 128
+    # AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@pgbouncer/airflow
+    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@pgbouncer/airflow
     AIRFLOW__CELERY__BROKER_URL: amqp://airflow:airflow@rabbitmq:5672/airflow
-    AIRFLOW__CELERY__WORKER_CONCURRENCY: "10"
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "16"
     AIRFLOW_UID: ${AIRFLOW_UID:-50000}
     # Our connections/variables
     AIRFLOW_CONN_SAMPLE_CONNECTION: ${AIRFLOW_CONN_SAMPLE_CONNECTION}
     AIRFLOW_VAR_SAMPLE_VARIABLE: ${AIRFLOW_VAR_SAMPLE_VARIABLE}
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # Lower - more frequently scheduler will run loop
+    AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
   volumes:
     # Mount sources to update without restart
     # TODO: somewhy with Celery it works only when we mount into dags directory
@@ -47,7 +53,7 @@ x-airflow-common:
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    postgres:
+    pgbouncer:
       condition: service_healthy
     rabbitmq:
       condition: service_healthy
@@ -70,39 +76,75 @@ services:
       - *logs-common
     entrypoint: /bin/bash
     command:
-      - ./scripts/airflow_docker_init.sh
+      - -c
+      - |
+        ./scripts/airflow_docker_init.sh
+        python ./scripts/create_connections.py
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      SAMPLE_POSTGRES_CONNECTION: ${SAMPLE_POSTGRES_CONNECTION}
     user: "0:0"
     depends_on:
-      <<: *airflow-common-depends-on
-      airflow-check-resources:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   postgres:
     <<: *logs-common
-    image: postgres:13
+    image: postgres:16
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      # Airflow will be created
+      POSTGRES_MULTIPLE_DATABASES: airflow:sample_db
+    # Increased just for case
+    # command: postgres -c 'max_connections=1000'
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./docker/scripts/create-postgresql-databases.sh:/docker-entrypoint-initdb.d/create-postgresql-databases.sh:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
       start_period: 5s
-    restart: always
+    restart: unless-stopped
+
+  # Added for many PG connections (for testing)
+  pgbouncer:
+    <<:
+      - *logs-common
+    image: edoburu/pgbouncer:v1.24.0-p1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5432:5432"
+    environment:
+      - DB_USER=airflow
+      - DB_PASSWORD=airflow
+      - DB_HOST=postgres
+      - MAX_CLIENT_CONN=1000
+      - AUTH_TYPE=scram-sha-256 # remove/comment this line if using postgres:13 and lower
+      - POOL_MODE=transaction
+      - ADMIN_USERS=airflow
+    # volumes:
+      # - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      # - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U airflow"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   rabbitmq:
     <<: *logs-common
     image: rabbitmq:4.0.5-management-alpine
-    restart: always
+    restart: unless-stopped
     ports:
         - "15672:15672"
         - "5672:5672"
@@ -112,9 +154,9 @@ services:
       timeout: 30s
       retries: 3
     environment:
-        - RABBITMQ_DEFAULT_USER=airflow
-        - RABBITMQ_DEFAULT_PASS=airflow
-        - RABBITMQ_DEFAULT_VHOST=airflow
+      RABBITMQ_DEFAULT_USER: airflow
+      RABBITMQ_DEFAULT_PASS: airflow
+      RABBITMQ_DEFAULT_VHOST: airflow
 
   airflow-worker:
     <<:
@@ -135,10 +177,12 @@ services:
       # Required to handle warm shutdown of the celery workers properly
       # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
       DUMB_INIT_SETSID: "0"
-    restart: always
+    restart: unless-stopped
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
+        condition: service_completed_successfully
+      airflow-check-resources:
         condition: service_completed_successfully
 
   airflow-webserver:
@@ -154,27 +198,31 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: unless-stopped
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
+        condition: service_completed_successfully
+      airflow-check-resources:
         condition: service_completed_successfully
 
   airflow-scheduler:
     <<:
       - *airflow-common
       - *logs-common
-    command: scheduler
+    command: scheduler -v
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: unless-stopped
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
+        condition: service_completed_successfully
+      airflow-check-resources:
         condition: service_completed_successfully
 
   airflow-triggerer:
@@ -188,7 +236,28 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-check-resources:
+        condition: service_completed_successfully
+
+  flower:
+    <<:
+      - *airflow-common
+      - *logs-common
+    command: celery flower
+    ports:
+      - "5555:5555"
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:5555/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:

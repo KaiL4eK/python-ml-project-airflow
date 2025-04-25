@@ -1,5 +1,5 @@
 # Custom Airflow image to install dependencies
-ARG AIRFLOW_IMAGE_NAME=apache/airflow:2.10.4
+ARG AIRFLOW_IMAGE_NAME=apache/airflow:2.10.4-python3.9
 FROM ${AIRFLOW_IMAGE_NAME}
 
 # `root` user to install everything
@@ -23,3 +23,6 @@ RUN pip install --upgrade pip \
   && pip install -r requirements.txt
 
 COPY docker/scripts/ ./scripts/
+
+COPY python_ml_project_airflow ./python_ml_project_airflow/
+RUN pip install .
