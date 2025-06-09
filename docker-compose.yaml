@@ -3,6 +3,13 @@
 volumes:
   postgres-db-volume:
 
+x-logs-common:
+  &logs-common
+  logging:
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 x-airflow-common:
   &airflow-common
   # Build custom image with deps from poetry
@@ -61,23 +68,26 @@ services:
     user: "0:0"
     depends_on:
       <<: *airflow-common-depends-on
-      airflow-check-resources:
-        condition: service_completed_successfully
 
   postgres:
-    image: postgres:13
+    <<: *logs-common
+    image: postgres:16
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      # Airflow will be created
+      POSTGRES_MULTIPLE_DATABASES: airflow:sample_db
+    # Increased just for case
+    # command: postgres -c 'max_connections=1000'
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./docker/scripts/create-postgresql-databases.sh:/docker-entrypoint-initdb.d/create-postgresql-databases.sh:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
       start_period: 5s
-    restart: always
+    restart: unless-stopped
 
   airflow-webserver:
     <<: *airflow-common

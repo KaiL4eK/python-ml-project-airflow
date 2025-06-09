@@ -93,6 +93,7 @@ ignore = [
   "D401",
   "RET504",
   "ISC001",
+  "COM812"
 ]
 
 exclude = [

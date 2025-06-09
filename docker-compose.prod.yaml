@@ -89,8 +89,7 @@ services:
       SAMPLE_POSTGRES_CONNECTION: ${SAMPLE_POSTGRES_CONNECTION}
     user: "0:0"
     depends_on:
-      postgres:
-        condition: service_healthy
+      <<: *airflow-common-depends-on
 
   postgres:
     <<: *logs-common
